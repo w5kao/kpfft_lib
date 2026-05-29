@@ -1,10 +1,10 @@
 
 CFLAGS=-march=native -Ofast -g -flto -std=gnu99 -W -pedantic -Wcast-qual -Wpointer-arith -Wcast-align \
-	-mavx2 -mfma -ffast-math -g -O2 -I../../fftw-bin/include
+	-mavx2 -mfma -ffast-math @CFLAGS@ @FFTW_CFLAGS@
 
-LDFLAGS= -static -L../../fftw-bin/lib -lfftw3_threads -lfftw3 -lm -lpthread
+LDFLAGS=@LDFLAGS@ @FFTW_LIBS@ -lm -lpthread
 
-cCC=gcc
+cCC=@CC@
 
 
 all: kpfft_test
@@ -22,7 +22,7 @@ clean:
 	rm -f *.o
 
 distclean: clean 
-	rm my_fft_test
+	rm kpfft_test
 
 
 

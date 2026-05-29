@@ -1,0 +1,90 @@
+
+
+FFTW ?= ../fftw-bin
+
+FFTW_T_LIB = -lfftw3_threads
+
+
+
+CXXFLAGS=-march=native -Ofast -g -flto -std=gnu99 -W -pedantic -Wcast-qual -Wpointer-arith -Wcast-align \
+	-mavx2 -mfma -ffast-math
+	
+# -mavx512f -mavx512dq
+
+CXXFLAGS_FFTW = -I $(FFTW)/include
+
+# -march=native 
+
+# -mavx512f -mavx512dq
+# -fomit-frame-pointer \
+
+LDFLAGS_COMMON = -static -Ofast -flto 
+# -march=native 
+LDFLAGS_GCC = $(LDFLAGS_COMMON) -L $(FFTW)/lib $(FFTW_T_LIB) -lfftw3 -lm -lpthread $(LDFLAGS_OMP)
+
+
+cCC=/usr/bin/gcc
+#CXX=/usr/bin/gcc
+#cCC = clang-16
+
+
+MKL = $(HOME)/intel/oneapi/mkl/latest
+MKL_LINK = $(MKL)/bin/mkl_link_tool -c gnu_c
+MKL_FLAGS= -l static -o gomp
+LDFLAGS_MKL = $(shell $(MKL_LINK) -libs $(MKL_FLAGS))
+CXXFLAGS_MKL = -DUSE_MKL -I$(MKL)/include
+
+AOCL = ../aocl/amd-fftw
+LDFLAGS_AOCL = $(LDFLAGS_COMMON) -L $(AOCL)/lib $(FFTW_T_LIB) -lfftw3 -lm -lpthread -fopenmp
+CXXFLAGS_AOCL = -DUSE_AOCL -DUSE_OMP -I$(AOCL)/include -fopenmp
+
+ifneq ($(USE_MKL),)
+
+	CXXFLAGS += $(CXXFLAGS_MKL)
+	LDFLAGS_GCC = $(LDFLAGS_COMMON) $(LDFLAGS_MKL)
+
+else ifneq ($(USE_AOCL),)
+
+	FFTW_T_LIB = -lfftw3_omp
+	CXXFLAGS += $(CXXFLAGS_AOCL)
+	LDFLAGS_GCC = $(LDFLAGS_COMMON) $(LDFLAGS_AOCL)
+
+else
+
+	CXXFLAGS += $(CXXFLAGS_FFTW)
+
+endif
+
+
+all: my_fft_test
+
+
+%.o: %.c
+	$(cCC) -c $(CXXFLAGS) -o $@ $<
+
+%_v.o: %.c
+	$(cCC) -c $(CXXFLAGS) -DVARIABLE_BLOCK_SIDE -o $@ $<
+
+%_b128.o: %.c
+	$(cCC) -c $(CXXFLAGS) -DBLOCK_SIDE_SIZE=128 -o $@ $<
+
+my_fft_test: my_fft_test.o my_fft_lib.o my_thr_lib.o
+	$(cCC) -Wall -o $@ $^ $(LDFLAGS_GCC)
+
+my_fft_test_v: my_fft_test_v.o my_fft_lib_v.o my_thr_lib.o
+	$(cCC) -Wall -o $@ $^ $(LDFLAGS_GCC)
+
+my_fft_test_b128: my_fft_test_b128.o my_fft_lib_b128.o my_thr_lib.o
+	$(cCC) -Wall -o $@ $^ $(LDFLAGS_GCC)
+
+block_side_test: block_side_test_v.o my_fft_lib_v.o my_thr_lib.o
+	$(cCC) -Wall -o $@ $^ $(LDFLAGS_GCC)
+
+clean:
+	rm -f *.o
+
+distclean: clean 
+	rm my_fft_test
+
+
+
